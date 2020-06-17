@@ -136,13 +136,13 @@ void runTask1(int episode)
 				}
 			}
 
-			cvKMeans2(&greyscale, 1, &clusters, cvTermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 10, 1.0));
+			/*cvKMeans2(&greyscale, 1, &clusters, cvTermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 10, 1.0));
 			cvZero(&clusters);
 
 			for (i = 0; i < 5; i++) {
 				CvPoint2D32f pt = ((CvPoint2D32f*) greyscale.data)[i];
 				circle(clusters, cvPointFrom32f(pt), 2, cvScalar(0, 255, 0), CV_FILLED);
-			}
+			}*/
 
 			///*goodFeaturesToTrack(GrayImage, corners, 25, 0.01, 2);
 			//for (int i = 0; i < corners.size(); i++)
@@ -211,8 +211,8 @@ int main()
 	auto episodes = 10;
 
 	//======================
-	//runTask1(episodes);
-	run_task_2(episodes);
+	runTask1(episodes);
+	//run_task_2(episodes);
 	//======================
 
 	game->close();
