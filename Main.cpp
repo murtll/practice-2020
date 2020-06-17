@@ -2,35 +2,27 @@
 #include <opencv2/opencv.hpp>
 #include <ViZDoom.h>
 
-#define KEY_DOWN(key) (GetAsyncKeyState(key) & 0x8000)
-#define MAX_CORNERS 50
-
 std::string path = "C:\\practice\\vizdoom";
 vizdoom::DoomGame* game = new vizdoom::DoomGame();
 unsigned int sleepTime = 1000 / vizdoom::DEFAULT_TICRATE;
 auto screenBuf = cv::Mat(480, 640, CV_8UC3);
 
-void run_task_2(int episodes) {
-
+//task 2
+void run_task_2(int episodes)
+{
 	try
 	{
-		game->loadConfig(path + "\\scenarios\\task1.cfg");
+		game->loadConfig(path + "\\scenarios\\task2.cfg");
+		game->setWindowVisible(true);
 		game->init();
 	}
 	catch (std::exception& e)
 	{
 		std::cout << e.what() << std::endl;
 	}
-
+	std::vector<double> action = { 0 ,0, 40, 0 };
+	auto image = cv::Mat(480, 640, CV_8UC3);
 	auto greyscale = cv::Mat(480, 640, CV_8UC1);
-
-	std::vector<int> rewards;
-
-	std::vector<double> actions[3];
-	actions[0] = { 1, 0, 0 };
-	actions[1] = { 0, 1, 0 };
-	actions[2] = { 0, 0, 1 };
-
 	for (auto i = 0; i < episodes; i++)
 	{
 		game->newEpisode();
@@ -38,33 +30,50 @@ void run_task_2(int episodes) {
 
 		while (!game->isEpisodeFinished())
 		{
-			const auto& gamestate = game->getState();
+			int center = 0;
+			int k = 0;
 
-			std::memcpy(screenBuf.data, gamestate->screenBuffer->data(), gamestate->screenBuffer->size());
+			const auto& gameState = game->getState();
+			std::memcpy(image.data, gameState->screenBuffer->data(), gameState->screenBuffer->size());
 
-			cv::extractChannel(screenBuf, greyscale, 0);
+			for (int x = 0; x < 640; x++)
+			{
+				for (int y = 0; y < 480; y++)
+				{
+					if (int(image.at<cv::Vec3b>(y, x)[2]) > 130 && int(image.at<cv::Vec3b>(y, x)[0]) < 50)
+					{
+						circle(image, cv::Point(x, y), 1, cv::Scalar(0, 255, 0), 1, 8, 0);
 
-			cv::threshold(greyscale, greyscale, 130, 255, cv::THRESH_BINARY);
+						center += x;
+						k++;
+					}
+				}
+			}
 
-			cv::imshow("Control Window", greyscale);
+			if (k != 0)
+			{
+				center /= k;
+			}
+
+			circle(image, cv::Point(center, 245), 3, cv::Scalar(0, 0, 255), -1, 8, 0);
+			imshow("Game", image);
+			double tmp = (center - 320) * 0.15;
+			action = { 0, 0, tmp, 0 };
+
+			if (abs(center - 320) < 30)
+			{
+				action = { 0,0,0,1 };
+			}
+
+			game->makeAction(action);
+
 			cv::waitKey(sleepTime);
-
-			//double reward = game->makeAction(actions[2]);
 		}
-
 		std::cout << game->getTotalReward() << std::endl;
-
-		rewards.push_back(game->getTotalReward());
-
 	}
-
-	int average = 0;
-	for (auto i : rewards) {
-		average += i;
-	}
-	std::cout << average / episodes;
 };
 
+//task 1
 void runTask1(int episode)
 {
 	try
@@ -80,8 +89,9 @@ void runTask1(int episode)
 	}
 	std::vector<double> actions[4];
 	auto image = cv::Mat(480, 640, CV_8UC3);
-	auto GrayImage = cv::Mat(480, 640, CV_8UC1);	
-	//action[0] = {1,0,0};
+	auto greyscale = cv::Mat(480, 640, CV_8UC1);
+	auto clusters = cv::Mat(480, 640, CV_8UC3);
+
 	actions[0] = { 1,0,0 };
 	actions[1] = { 0,1,0 };
 	actions[2] = { 0,0,1 };
@@ -98,7 +108,6 @@ void runTask1(int episode)
 
 			int center = 0;
 			int k = 0;
-			//cout << "Time: " << game->getEpisodeTime() << endl;
 			const auto& gameState = game->getState();
 			std::memcpy(image.data, gameState->screenBuffer->data(), gameState->screenBuffer->size());
 			//vizdoom::BufferPtr screenBuf = gameState->screenBuffer;
@@ -109,21 +118,32 @@ void runTask1(int episode)
 			//cvtColor(image, GrayImage, cv::COLOR_BGR2GRAY);
 			//line(image, Point(0, 245), Point(639, 245), Scalar(0, 0, 200));
 
-			//vector<Point2f> corners;
-
 			for (int x = 0; x < 640; x++)
 			{
 				for (int y = 0; y < 480; y++)
 				{
 					if (int(image.at<cv::Vec3b>(y, x)[2]) > 130 && int(image.at<cv::Vec3b>(y, x)[0]) < 50)
 					{
+						greyscale.at<unsigned char>(y, x) = 255;
 						circle(image, cv::Point(x, y), 1, cv::Scalar(0, 255, 0), 1, 8, 0);
 						center += x;
 						k++;
+					} 
+					else
+					{
+						greyscale.at<unsigned char>(y, x) = 0;
 					}
 				}
-				//	//cout << int(image.at<vec3b>(245, x)[2]) << " ";
 			}
+
+			cvKMeans2(&greyscale, 1, &clusters, cvTermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 10, 1.0));
+			cvZero(&clusters);
+
+			for (i = 0; i < 5; i++) {
+				CvPoint2D32f pt = ((CvPoint2D32f*) greyscale.data)[i];
+				circle(clusters, cvPointFrom32f(pt), 2, cvScalar(0, 255, 0), CV_FILLED);
+			}
+
 			///*goodFeaturesToTrack(GrayImage, corners, 25, 0.01, 2);
 			//for (int i = 0; i < corners.size(); i++)
 			//{
@@ -140,6 +160,7 @@ void runTask1(int episode)
 			////waitKey(100);
 			////cout << image.at<uchar>(245, 340) << endl;
 			////cout << intensity.val[2] << endl;
+			imshow("Clusters", clusters);
 			imshow("Game", image);
 			if ((center - 320) > 30)
 			{
@@ -187,12 +208,11 @@ int main()
 		std::cout << e.what() << std::endl;
 	}
 
-	cv::namedWindow("Control Window", cv::WINDOW_AUTOSIZE);
-
 	auto episodes = 10;
 
 	//======================
-	runTask1(episodes);
+	//runTask1(episodes);
+	run_task_2(episodes);
 	//======================
 
 	game->close();
