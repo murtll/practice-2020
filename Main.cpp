@@ -1,37 +1,27 @@
-#include <windows.h>
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <ViZDoom.h>
 
-using namespace vizdoom;
-using namespace cv;
-using namespace std;
+std::string path = "C:\\practice\\vizdoom";
+vizdoom::DoomGame* game = new vizdoom::DoomGame();
+unsigned int sleepTime = 1000 / vizdoom::DEFAULT_TICRATE;
+auto screenBuf = cv::Mat(480, 640, CV_8UC3);
 
+void run_task_1(int episodes) {
 
-int main()
-{
-	DoomGame* game = new DoomGame();
 	try
 	{
-		string path = "C:\\practice\\vizdoom";
-		game->setViZDoomPath(path + "\\vizdoom.exe");
-		game->setDoomGamePath(path + "\\freedoom2.wad");
-		game->loadConfig(path + "\\scenarios\\basic.cfg");
-		game->setWindowVisible(true);
-		game->setRenderWeapon(true);
+		game->loadConfig(path + "\\scenarios\\task1.cfg");
 		game->init();
 	}
-	catch (exception& e)
+	catch (std::exception& e)
 	{
-		cout << e.what() << endl;
+		std::cout << e.what() << std::endl;
 	}
 
-	//namedWindow("Control window", WINDOW_AUTOSIZE);
-	//auto image = Mat(480, 640, CV_8UC3);
+	auto greyscale = cv::Mat(480, 640, CV_8UC1);
 
-	unsigned int sleepTime = 1000 / DEFAULT_TICRATE;
-
-	auto episodes = 10;
+	std::vector<int> rewards;
 
 	std::vector<double> actions[3];
 	actions[0] = { 1, 0, 0 };
@@ -41,38 +31,56 @@ int main()
 	for (auto i = 0; i < episodes; i++)
 	{
 		game->newEpisode();
-		cout << "Episode #" << i + 1 << endl;
+		std::cout << "Episode #" << i + 1 << std::endl;
 
 		while (!game->isEpisodeFinished())
 		{
-			auto gamestate = game->getState();
+			const auto& gamestate = game->getState();
 
-			auto screenBuf = gamestate->screenBuffer;
+			std::memcpy(screenBuf.data, gamestate->screenBuffer->data(), gamestate->screenBuffer->size());
 
-			//image.data = screenBuf->data();
-			//imshow("Control Window", screenBuf->data());
+			cv::extractChannel(screenBuf, greyscale, 0);
 
-			for (auto i = 0; i < 30; i++)
-			{
-				game->makeAction(actions[2]);
-				game->makeAction(actions[0]);
-				//waitKey(sleepTime);
-				Sleep(sleepTime);
-			}
+			cv::threshold(greyscale, greyscale, 130, 255, cv::THRESH_BINARY);
 
-			for (auto i = 0; i < 60; i++)
-			{
-				game->makeAction(actions[2]);
-				game->makeAction(actions[1]);
-				//waitKey(sleepTime);
-				Sleep(sleepTime);
-			}
+			cv::imshow("Control Window", greyscale);
+			cv::waitKey(sleepTime);
 
+			//double reward = game->makeAction(actions[2]);
 		}
 
-		cout << game->getTotalReward() << endl;
+		std::cout << game->getTotalReward() << std::endl;
+
+		rewards.push_back(game->getTotalReward());
 
 	}
+
+	int average = 0;
+	for (auto i : rewards) {
+		average += i;
+	}
+	std::cout << average / episodes;
+};
+
+int main()
+{
+	try
+	{
+		game->setViZDoomPath(path + "\\vizdoom.exe");
+		game->setDoomGamePath(path + "\\freedoom2.wad");
+	}
+	catch (std::exception& e)
+	{
+		std::cout << e.what() << std::endl;
+	}
+
+	cv::namedWindow("Control Window", cv::WINDOW_AUTOSIZE);
+
+	auto episodes = 10;
+
+	//======================
+	run_task_1(episodes);
+	//======================
 
 	game->close();
 	delete game;
