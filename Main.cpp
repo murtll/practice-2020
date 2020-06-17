@@ -87,17 +87,20 @@ void runTask1(int episode)
 	{
 		std::cout << e.what() << std::endl;
 	}
+
 	std::vector<double> actions[4];
+
 	auto image = cv::Mat(480, 640, CV_8UC3);
 	auto greyscale = cv::Mat(480, 640, CV_8UC1);
-	auto clusters = cv::Mat(480, 640, CV_8UC3);
+	//auto clusters = cv::Mat(480, 640, CV_8UC3);
+	//auto centers = cv::Mat(480, 640, CV_8UC3);
+
+	cv::Mat clusters, centers;
 
 	actions[0] = { 1,0,0 };
 	actions[1] = { 0,1,0 };
 	actions[2] = { 0,0,1 };
 	actions[3] = { 0,0,0 };
-	//action[1]
-	//action[2]
 	for (auto i = 0; i < episode; i++)
 	{
 		game->newEpisode();
@@ -136,6 +139,17 @@ void runTask1(int episode)
 				}
 			}
 
+			greyscale.convertTo(greyscale, CV_32F);
+			
+			cv::Mat samples = greyscale.reshape(1, greyscale.total());
+
+			cv::kmeans(samples, 1, clusters, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 10, 1.0), 3, cv::KMEANS_RANDOM_CENTERS, centers);
+
+			centers = centers.reshape(1, 0);
+			clusters = clusters.reshape(1, greyscale.rows);
+
+			greyscale.convertTo(greyscale, CV_8UC3);
+
 			/*cvKMeans2(&greyscale, 1, &clusters, cvTermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 10, 1.0));
 			cvZero(&clusters);
 
@@ -144,7 +158,7 @@ void runTask1(int episode)
 				circle(clusters, cvPointFrom32f(pt), 2, cvScalar(0, 255, 0), CV_FILLED);
 			}*/
 
-			///*goodFeaturesToTrack(GrayImage, corners, 25, 0.01, 2);
+			/*goodFeaturesToTrack(GrayImage, corners, 25, 0.01, 2);
 			//for (int i = 0; i < corners.size(); i++)
 			//{
 			//	cv::circle(image, Point(corners[i].x, corners[i].y), 10, Scalar(255, 255, 255), -1, 8, 0);
@@ -155,7 +169,13 @@ void runTask1(int episode)
 			{
 				center /= k;
 			}
-			circle(image, cv::Point(center, 245), 3, cv::Scalar(0, 0, 255), -1, 8, 0);
+
+			circle(image, cv::Point(center, 245), 40, cv::Scalar(0, 0, 255), 1, 10, 0);
+			//circle(image, cv::Point(center, 245), 3, cv::Scalar(0, 0, 255), -1, 8, 0);
+
+			cv::Point2f c = centers.at<cv::Point2f>(0);
+			cv::circle(image, c, 10, cv::Scalar(0, 0, 255), -1, 8);
+
 			////cout << endl;
 			////waitKey(100);
 			////cout << image.at<uchar>(245, 340) << endl;
@@ -193,6 +213,9 @@ void runTask1(int episode)
 			cv::waitKey(sleepTime);
 		}
 		std::cout << game->getTotalReward() << std::endl;
+
+		std::cout << clusters.rows << " " << clusters.cols << std::endl;
+		std::cout << centers << std::endl;
 	}
 };
 
