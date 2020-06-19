@@ -2,6 +2,12 @@
 #include <opencv2/opencv.hpp>
 #include <ViZDoom.h>
 
+#define COLOR_RED cv::Scalar(0, 0, 255)
+#define COLOR_GREEN cv::Scalar(0, 255, 0)
+#define COLOR_BLUE cv::Scalar(255, 0, 0)
+#define COLOR_YELLOW cv::Scalar(0, 255, 255)
+#define COLOR_VIOLET cv::Scalar(255, 255, 0)
+
 double total_reward = 0;
 std::string path = "..\\vizdoom";
 auto game = std::make_unique<vizdoom::DoomGame>();
@@ -360,12 +366,12 @@ int thresholdImagePart(cv::Mat input, cv::Mat output, int start_x) {
 			&& std::abs(input.at<cv::Vec3b>(j, i + start_x)[1] - 50) < 10
 			&& std::abs(input.at<cv::Vec3b>(j, i + start_x)[2] - 50) < 10)
 			{
-				output.at<unsigned char>(j, i) = 255;
+				//output.at<unsigned char>(j, i) = 255;
 				points_count++;
 			}
 			else
 			{
-				output.at<unsigned char>(j, i) = 0;
+				//output.at<unsigned char>(j, i) = 0;
 			}
 		}
 	}
@@ -392,10 +398,11 @@ void runTask4(int episodes) {
 	double integral = 0;
 	cv::Point max_cluster_center = cv::Point(320, 0);
 
-
 	auto image = cv::Mat(480, 640, CV_8UC3);
 	auto greyscale_right = cv::Mat(400, 320, CV_8UC1);
 	auto greyscale_left = cv::Mat(400, 320, CV_8UC1);
+
+	cv::Mat grenade_templ = cv::imread("sprites\\Pickups\\bon1a0.png");
 
 	cv::Mat clusters;
 
@@ -430,7 +437,11 @@ void runTask4(int episodes) {
 			int points_left = thresholdImagePart(image, greyscale_left, 0);
 			int points_right = thresholdImagePart(image, greyscale_right, 320);
 
-			if (points_left > 80000)
+			if (points_left > 80000 && points_right > 80000)
+			{
+				game->makeAction({ 0, 0, 200, 1 });
+			}
+			else if (points_left > 80000)
 			{
 				game->makeAction({ 0, 0, 45, 1 });
 			}
@@ -471,43 +482,78 @@ void runTask4(int episodes) {
 			}
 			max_cluster_center.y = std::min(tmp, max_cluster_center.y);
 
-
-			for (int i = 0; i < centers.size(); i++)
-			{
-				cv::Point c = centers[i];
-
-				cv::circle(image, c, 5, cv::Scalar(0, 0, 255), -1, 8);
-				cv::circle(image, c, 40, cv::Scalar(0, 0, 255));
-			}
-
-			cv::circle(image, max_cluster_center, 5, cv::Scalar(255, 255, 0), -1, 8);
-			cv::circle(image, max_cluster_center, 40, cv::Scalar(255, 255, 0));
-
-			//for (int i = 0; i < points.size(); i++)
-			//{
-				//cv::circle(image, points[i], 2, cv::Scalar(0, 255, 0));
-			//}
-
-
-			imshow("Game", image);
-			cv::moveWindow("Game", 60, 20);
-			//imshow("Greyscale right", greyscale_right);
-			//imshow("Greyscale left", greyscale_left);
-			//cv::moveWindow("Greyscale left", 710, 20);
-			//cv::moveWindow("Greyscale right", 1030, 20);
-
 			greyscale_left.convertTo(greyscale_left, CV_32F);
 			greyscale_right.convertTo(greyscale_left, CV_32F);
 			greyscale_left.convertTo(greyscale_left, CV_8UC1);
 			greyscale_right.convertTo(greyscale_right, CV_8UC1);
+
+			cv::Mat result;
+
+			int result_cols = image.cols - grenade_templ.cols + 1;
+			int result_rows = grenade_templ.rows - grenade_templ.rows + 1;
+
+			result.create(result_rows, result_cols, CV_32FC1);
+
+			cv::matchTemplate(image, grenade_templ, result, 4);
+			cv::normalize(result, result, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
+
+			double minVal, maxVal; 
+			cv::Point minLoc, maxLoc;
+
+			minMaxLoc(result, &minVal, &maxVal, &minLoc, &maxLoc, cv::Mat());
+
+			bool on_my_way_woody = false;
+
+			//TODO (DO GRENADE FINDING BETTER)
+
+			if (maxLoc.x > 180 && maxLoc.x < 460 && maxLoc.y > 160 && (max_cluster_center.x - maxLoc.x > 60 || max_cluster_center.y - maxLoc.y > 60))
+			{
+				on_my_way_woody = true;
+				std::cout << "on my way woody" << std::endl;
+			}
+
+			rectangle(image, maxLoc, cv::Point(maxLoc.x + grenade_templ.cols, maxLoc.y + grenade_templ.rows), COLOR_RED, 1, 8, 0);
+			rectangle(image, cv::Point(180, 160), cv::Point(460, 480), COLOR_YELLOW, 1, 8, 0);
 
 			double err = max_cluster_center.x - 320;
 			double p = err * 0.2;
 			integral = integral + err * 0.01;
 			double u = p + integral;
 			actions = { 0, 0, u, 1 };
+
+			if (on_my_way_woody)
+			{
+				game->makeAction({0, 0, 50, 1});
+				actions[2] -= 50;
+			}
+
 			if (abs(err) < 30) game->makeAction({ 0,0,0,1 });
 			else game->makeAction(actions);
+
+			for (int i = 0; i < centers.size(); i++)
+			{
+				cv::Point c = centers[i];
+
+				cv::circle(image, c, 5, COLOR_BLUE, -1, 8);
+				cv::circle(image, c, 40, COLOR_BLUE);
+			}
+
+			cv::circle(image, max_cluster_center, 5, COLOR_GREEN, -1, 8);
+			cv::circle(image, max_cluster_center, 40, COLOR_GREEN);
+
+			//for (int i = 0; i < points.size(); i++)
+			//{
+				//cv::circle(image, points[i], 2, cv::Scalar(0, 255, 0));
+			//}
+
+			//cv::imshow("Res", result);
+			//cv::imshow("Tmpl", grenade_templ);
+			imshow("Game", image);
+			cv::moveWindow("Game", 60, 20);
+			//imshow("Greyscale right", greyscale_right);
+			//imshow("Greyscale left", greyscale_left);
+			//cv::moveWindow("Greyscale left", 710, 20);
+			//cv::moveWindow("Greyscale right", 1030, 20);
 
 			cv::waitKey(1);
 		}
