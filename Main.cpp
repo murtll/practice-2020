@@ -199,8 +199,10 @@ void runTask2(int episode)
 				actions = { 0,0,0,1 };
 			}
 			
-			game->makeAction(actions);
-			
+			int reward = game->makeAction(actions);
+
+			std::cout << reward << std::endl;
+
 			cv::waitKey(sleepTime);
 		}
 		std::cout << game->getTotalReward() << std::endl;
@@ -249,12 +251,12 @@ void runTask3(int episodes) {
 					{
 						if (int(image.at<cv::Vec3b>(y, x)[2]) > 130 && int(image.at<cv::Vec3b>(y, x)[0]) < 50)
 						{
-							greyscale.at<unsigned char>(y, x) = 255;
+							//greyscale.at<unsigned char>(y, x) = 255;
 							points.push_back(cv::Point2f(x, y));
 						}
 						else
 						{
-							greyscale.at<unsigned char>(y, x) = 0;
+							//greyscale.at<unsigned char>(y, x) = 0;
 						}
 					}
 				}
@@ -320,9 +322,9 @@ void runTask3(int episodes) {
 
 
 				imshow("Game", image);
-				imshow("Greyscale", greyscale);
+				//imshow("Greyscale", greyscale);
 				cv::moveWindow("Game", 60, 20);
-				cv::moveWindow("Greyscale", 710, 20);
+				//cv::moveWindow("Greyscale", 710, 20);
 
 				double err = max_cluster_center.x - 320;
 				double p = err * 0.2;
@@ -336,12 +338,39 @@ void runTask3(int episodes) {
 
 				game->makeAction(actions);
 
-				cv::waitKey(sleepTime);
+				cv::waitKey(1);
 			}
 			std::cout << game->getTotalReward() << std::endl;
 			total_reward += game->getTotalReward();
 		}
 
+}
+
+int thresholdImagePart(cv::Mat input, cv::Mat output, int start_x) {
+
+	assert(start_x + output.cols <= input.cols);
+
+	int points_count = 0;
+
+	for (int i = 0; i < output.cols; i++)
+	{
+		for (int j = 0; j < output.rows; j++)
+		{
+			if (std::abs(input.at<cv::Vec3b>(j, i + start_x)[0] - 50) < 10
+			&& std::abs(input.at<cv::Vec3b>(j, i + start_x)[1] - 50) < 10
+			&& std::abs(input.at<cv::Vec3b>(j, i + start_x)[2] - 50) < 10)
+			{
+				output.at<unsigned char>(j, i) = 255;
+				points_count++;
+			}
+			else
+			{
+				output.at<unsigned char>(j, i) = 0;
+			}
+		}
+	}
+
+	return points_count;
 }
 
 void runTask4(int episodes) {
@@ -361,17 +390,19 @@ void runTask4(int episodes) {
 	std::vector<double> actions = { 0,0,0,0 };
 
 	double integral = 0;
-	int turning_period = 15;
+	cv::Point max_cluster_center = cv::Point(320, 0);
+
 
 	auto image = cv::Mat(480, 640, CV_8UC3);
-	auto greyscale = cv::Mat(480, 640, CV_8UC1);
+	auto greyscale_right = cv::Mat(400, 320, CV_8UC1);
+	auto greyscale_left = cv::Mat(400, 320, CV_8UC1);
 
 	cv::Mat clusters;
 
-	for (auto i = 0; i < episodes; i++)
+	for (auto a = 0; a < episodes; a++)
 	{
 		game->newEpisode();
-		std::cout << "Episode #" << i + 1 << std::endl;
+		std::cout << "Episode #" << a + 1 << std::endl;
 
 		while (!game->isEpisodeFinished())
 		{
@@ -380,6 +411,7 @@ void runTask4(int episodes) {
 
 			std::vector<cv::Point2f> centers;
 			std::vector<cv::Point2f> points(0);
+
 			for (int x = 0; x < 640; x++)
 			{
 				for (int y = 0; y < 400; y++)
@@ -390,92 +422,94 @@ void runTask4(int episodes) {
 						&& int(image.at<cv::Vec3b>(y, x)[0]) < 150 
 						&& int(image.at<cv::Vec3b>(y, x)[2]) < 150)
 					{
-						greyscale.at<unsigned char>(y, x) = 255;
 						points.push_back(cv::Point2f(x, y));
-					}
-					else
-					{
-						greyscale.at<unsigned char>(y, x) = 0;
 					}
 				}
 			}
 
-			greyscale.convertTo(greyscale, CV_32F);
+			int points_left = thresholdImagePart(image, greyscale_left, 0);
+			int points_right = thresholdImagePart(image, greyscale_right, 320);
 
-			//cv::Mat samples = cv::Mat(points).reshape(1, points.size());
+			if (points_left > 80000)
+			{
+				game->makeAction({ 0, 0, 45, 1 });
+			}
+			else if (points_right > 80000)
+			{
+				game->makeAction({ 0, 0, -45, 1 });
+			}
 
 			int K = 3;
-			//K = K > 0 ? K : 1;
 			if (points.size() > K)
 			{
 				cv::kmeans(points, K, clusters, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 100, 10), 3, cv::KMEANS_RANDOM_CENTERS, centers);
 			}
-			else
+			else if (points.size() > 0)
 			{
-				if (rand() % turning_period == 0) game->makeAction({ 0, 0, 50, 0 });
-				else game->makeAction({ 0, 0, 0, 1 });
+				K = 1;
+				cv::kmeans(points, K, clusters, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 100, 10), 3, cv::KMEANS_RANDOM_CENTERS, centers);
 			}
 
-			greyscale.convertTo(greyscale, CV_8UC3);
+			max_cluster_center.x = 320;
 
-			std::vector<int> cluster_counts(K, 0);
-
-			for (int y = 0; y < clusters.total(); y++)
+			if (centers.size() > 0)
 			{
-				int cluster_number = clusters.at<int>(y);
-				cluster_counts[cluster_number]++;
-			}
-
-			cv::Point max_cluster_center = cv::Point(320, 240);
-			int tmp = 0;
-
-			for (int i = 0; i < cluster_counts.size(); i++)
-			{
-				if (cluster_counts[i] > tmp) {
-					if (centers.size() > 0)
-					{
-						tmp = cluster_counts[i];
-						max_cluster_center = centers[i];
-					}
-					else
-					{
-						if (rand() % turning_period == 0) game->makeAction({ 0, 0, 50, 0 });
-						else game->makeAction({ 0, 0, 0, 1 });
-					}
+				for (int i = 0; i < centers.size(); i++)
+				{
+					if (centers[i].y - max_cluster_center.y > 30) max_cluster_center = centers[i];
 				}
 			}
+			else
+			{
+				max_cluster_center.y = 0;
+			}
+
+			int tmp = 0;
+			for (int i = 0; i < centers.size(); i++)
+			{
+				tmp = std::max(tmp, (int)centers[i].y);
+			}
+			max_cluster_center.y = std::min(tmp, max_cluster_center.y);
+
 
 			for (int i = 0; i < centers.size(); i++)
 			{
 				cv::Point c = centers[i];
 
 				cv::circle(image, c, 5, cv::Scalar(0, 0, 255), -1, 8);
-				cv::rectangle(image, cv::Rect(c.x - 25, c.y - 25, 50, 50), cv::Scalar(0, 0, 255));
+				cv::circle(image, c, 40, cv::Scalar(0, 0, 255));
 			}
 
 			cv::circle(image, max_cluster_center, 5, cv::Scalar(255, 255, 0), -1, 8);
-			cv::rectangle(image, cv::Rect(max_cluster_center.x - 25, max_cluster_center.y - 25, 50, 50), cv::Scalar(255, 255, 0));
+			cv::circle(image, max_cluster_center, 40, cv::Scalar(255, 255, 0));
 
-			for (int i = 0; i < points.size(); i++)
-			{
-				cv::circle(image, points[i], 2, cv::Scalar(0, 255, 0));
-			}
+			//for (int i = 0; i < points.size(); i++)
+			//{
+				//cv::circle(image, points[i], 2, cv::Scalar(0, 255, 0));
+			//}
 
 
 			imshow("Game", image);
-			imshow("Greyscale", greyscale);
 			cv::moveWindow("Game", 60, 20);
-			cv::moveWindow("Greyscale", 710, 20);
+			//imshow("Greyscale right", greyscale_right);
+			//imshow("Greyscale left", greyscale_left);
+			//cv::moveWindow("Greyscale left", 710, 20);
+			//cv::moveWindow("Greyscale right", 1030, 20);
+
+			greyscale_left.convertTo(greyscale_left, CV_32F);
+			greyscale_right.convertTo(greyscale_left, CV_32F);
+			greyscale_left.convertTo(greyscale_left, CV_8UC1);
+			greyscale_right.convertTo(greyscale_right, CV_8UC1);
 
 			double err = max_cluster_center.x - 320;
 			double p = err * 0.2;
 			integral = integral + err * 0.01;
 			double u = p + integral;
 			actions = { 0, 0, u, 1 };
-			if (abs(err) < 60) game->makeAction({ 0,0,0,1 });
+			if (abs(err) < 30) game->makeAction({ 0,0,0,1 });
 			else game->makeAction(actions);
 
-			cv::waitKey(sleepTime);
+			cv::waitKey(1);
 		}
 		std::cout << game->getTotalReward() << std::endl;
 		total_reward += game->getTotalReward();
@@ -487,10 +521,8 @@ int main()
 {
 	try
 	{
-		
 		game->setViZDoomPath(path + "\\vizdoom.exe");
 		game->setDoomGamePath(path + "\\freedoom2.wad");
-		
 	}
 	catch (std::exception & e)
 	{
