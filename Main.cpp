@@ -357,26 +357,26 @@ void runTask3(int episodes) {
 }
 
 //returns count of points in cv::Mat that satisfy the requirements
-int thresholdImagePart(cv::Mat input, /*cv::Mat output,*/ int start_x) {
+int thresholdImagePart(cv::Mat input, cv::Mat output, int start_x) {
 
 	//assert(start_x + output.cols <= input.cols);
 
 	int points_count = 0;
 
-	for (int i = 0; i < 320 /*output.cols*/; i++)
+	for (int i = 0; i < output.cols; i++)
 	{
-		for (int j = 0; j < 480 /*output.rows*/; j++)
+		for (int j = 0; j < output.rows; j++)
 		{
 			if (std::abs(input.at<cv::Vec3b>(j, i + start_x)[0] - 50) < 10
 			&& std::abs(input.at<cv::Vec3b>(j, i + start_x)[1] - 50) < 10
 			&& std::abs(input.at<cv::Vec3b>(j, i + start_x)[2] - 50) < 10)
 			{
-				//output.at<unsigned char>(j, i) = 255;
+				output.at<unsigned char>(j, i) = 255;
 				points_count++;
 			}
 			else
 			{
-				//output.at<unsigned char>(j, i) = 0;
+				output.at<unsigned char>(j, i) = 0;
 			}
 		}
 	}
@@ -384,7 +384,7 @@ int thresholdImagePart(cv::Mat input, /*cv::Mat output,*/ int start_x) {
 	return points_count;
 }
 
-void runTask4(int episodes) {
+/*void runTask4(int episodes) {
 	try
 	{
 		game->loadConfig(path + "\\scenarios\\task4.cfg");
@@ -450,9 +450,9 @@ void runTask4(int episodes) {
 			}
 
 			//getting points of wall in left side
-			int points_left = thresholdImagePart(image, /*greyscale_left,*/ 0);
+			int points_left = thresholdImagePart(image, /*greyscale_left, 0);
 			//getting points of wall in right side
-			int points_right = thresholdImagePart(image, /*greyscale_right,*/ 320);
+			int points_right = thresholdImagePart(image, /*greyscale_right, 320);
 
 			//std::cout << points_right << std::endl;
 
@@ -658,6 +658,246 @@ void runTask4(int episodes) {
 			//imshow("Greyscale left", greyscale_left);
 			//cv::moveWindow("Greyscale left", 710, 20);
 			//cv::moveWindow("Greyscale right", 1030, 20);
+
+			cv::waitKey(1);
+		}
+		std::cout << game->getTotalReward() << std::endl;
+		total_reward += game->getTotalReward();
+	}
+
+}*/
+
+void runTask4(int episodes) {
+	try
+	{
+		game->loadConfig(path + "\\scenarios\\task4.cfg");
+		game->setWindowVisible(false);
+		//game->setLabelsBufferEnabled(true);
+		//game->setRenderWeapon(true);
+		game->init();
+	}
+	catch (std::exception& e)
+	{
+		std::cout << e.what() << std::endl;
+	}
+
+	std::vector<double> actions = { 0,0,0,0 };
+
+	double integral = 0;
+	double integral1 = 0;
+	int wall_points = 75000;
+	cv::Point max_cluster_center = cv::Point(320, 0);
+
+	auto image = cv::Mat(480, 640, CV_8UC3);
+
+	cv::Mat grenade_templ = cv::imread("sprites\\Pickups\\bon1b0.png");
+
+	cv::Mat clusters;
+
+	for (auto a = 0; a < episodes; a++)
+	{
+		game->newEpisode();
+		std::cout << "Episode #" << a + 1 << std::endl;
+
+		while (!game->isEpisodeFinished())
+		{
+
+			auto greyscale_right = cv::Mat(400, 320, CV_8UC1);
+			auto greyscale_left = cv::Mat(400, 320, CV_8UC1);
+
+			const auto& gameState = game->getState();
+			std::memcpy(image.data, gameState->screenBuffer->data(), gameState->screenBuffer->size());
+
+			std::vector<cv::Point2f> centers;
+			std::vector<cv::Point2f> points(0);
+
+			for (int x = 0; x < 640; x++)
+			{
+				for (int y = 0; y < 400; y++)
+				{
+					if (int(image.at<cv::Vec3b>(y, x)[1]) > 160
+						&& int(image.at<cv::Vec3b>(y, x)[0]) > 90
+						&& int(image.at<cv::Vec3b>(y, x)[2]) > 90
+						&& int(image.at<cv::Vec3b>(y, x)[0]) < 150
+						&& int(image.at<cv::Vec3b>(y, x)[2]) < 150)
+					{
+						points.push_back(cv::Point2f(x, y));
+					}
+				}
+			}
+
+			int points_left = (points.size() < 10) ? thresholdImagePart(image, greyscale_left, 0) : 0;
+			int points_right = (points.size() < 10) ? thresholdImagePart(image, greyscale_right, 320) : 0;
+
+			//std::cout << points_right << std::endl;
+
+			if (points_left > wall_points && points_right > wall_points)
+			{
+				game->makeAction({ 0, 0, 80, 1 });
+			}
+			if (points_left > wall_points)
+			{
+				game->makeAction({ 0, 0, 20, 1 });
+			}
+			else if (points_right > wall_points)
+			{
+				game->makeAction({ 0, 0, -20, 1 });
+			}
+
+			int K = 3;
+			if (points.size() > K)
+			{
+				cv::kmeans(points, K, clusters, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 100, 10), 3, cv::KMEANS_RANDOM_CENTERS, centers);
+			}
+			else if (points.size() > 0)
+			{
+				K = 1;
+				cv::kmeans(points, K, clusters, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 100, 10), 3, cv::KMEANS_RANDOM_CENTERS, centers);
+			}
+
+			max_cluster_center.x = 320;
+
+			if (centers.size() > 0)
+			{
+				for (int i = 0; i < centers.size(); i++)
+				{
+					if (centers[i].y - max_cluster_center.y > 10) max_cluster_center = centers[i];
+				}
+			}
+			else
+			{
+				max_cluster_center.y = 0;
+			}
+
+			int tmp = 0;
+			for (int i = 0; i < centers.size(); i++)
+			{
+				tmp = std::max(tmp, (int)centers[i].y);
+			}
+			max_cluster_center.y = std::min(tmp, max_cluster_center.y);
+
+			greyscale_left.convertTo(greyscale_left, CV_32F);
+			greyscale_right.convertTo(greyscale_right, CV_32F);
+			greyscale_left.convertTo(greyscale_left, CV_8UC1);
+			greyscale_right.convertTo(greyscale_right, CV_8UC1);
+
+			if (points_left - points_right > 40000 && points.size() == 0)
+			{
+				actions = { 0, 0, 40, 1 };
+			}
+			else if (points_right - points_left > 40000 && points.size() == 0)
+			{
+				actions = { 0, 0, -40, 1 };
+			}
+
+			for (int i = 0; i < centers.size(); i++)
+			{
+				cv::Point c = centers[i];
+
+				//cv::circle(image, c, 5, COLOR_BLUE, -1, 8);
+				//cv::circle(image, c, 40, COLOR_BLUE);
+				cv::putText(image, "AID", cv::Point(c.x - 20, c.y - 30), 1, 1, COLOR_GREEN);
+				cv::rectangle(image, cv::Point(c.x - 20, c.y - 30), cv::Point(c.x + 40, c.y + 30), COLOR_GREEN, 1);
+			}
+
+			//cv::circle(image, max_cluster_center, 5, COLOR_GREEN, -1, 8);
+			//cv::circle(image, max_cluster_center, 40, COLOR_GREEN);
+			//cv::putText(image, "AID", cv::Point(max_cluster_center.x - 20, max_cluster_center.y - 30), 1, 1, COLOR_GREEN);
+			//cv::rectangle(image, cv::Point(max_cluster_center.x - 20, max_cluster_center.y - 30), cv::Point(max_cluster_center.x + 40, max_cluster_center.y + 30), COLOR_GREEN, -1);
+
+			cv::Mat result;
+
+			int result_cols = image.cols - grenade_templ.cols + 1;
+			int result_rows = grenade_templ.rows - grenade_templ.rows + 1;
+
+			result.create(result_rows, result_cols, CV_32FC1);
+
+			cv::matchTemplate(image, grenade_templ, result, 4);
+			//cv::normalize(result, result, 0, 1, cv::NORM_MINMAX, -1, cv::Mat());
+
+			double minVal, maxVal;
+			cv::Point minLoc, maxLoc;
+
+			minMaxLoc(result, &minVal, &maxVal, &minLoc, &maxLoc, cv::Mat());
+
+			cv::putText(image, "grenade", maxLoc, 1, 1, cv::Scalar(0, 0, maxVal * 0.000028));
+			//cv::putText(image, "grenade visor", cv::Point(140, 200), 1, 1, COLOR_YELLOW);
+
+			rectangle(image, maxLoc, cv::Point(maxLoc.x + grenade_templ.cols, maxLoc.y + grenade_templ.rows), cv::Scalar(0, 0, maxVal * 0.000028));
+			//rectangle(image, cv::Point(80, 200), cv::Point(560, 400), COLOR_YELLOW);
+
+			double err = max_cluster_center.x - 320;
+			if (points.size() > 0)
+			{
+				double p = err * 0.2;
+				integral = integral + err * 0.01;
+				double u = p + integral;
+				actions = { 0, 0, u, 1 };
+			}
+
+			if (abs(err) < 20) actions = { 0,0,0,1 };
+
+			//TODO (DO GRENADE FINDING BETTER)
+
+			if (maxLoc.x > 80 && maxLoc.x < 560 && maxLoc.y > 200 && maxLoc.y < 400
+				&& maxVal >= 9100000
+				&& maxLoc.y > max_cluster_center.y
+				//&& !(game->getGameVariable(vizdoom::HEALTH) > 40 && std::abs(max_cluster_center.x - maxLoc.x) < 20 || std::abs(max_cluster_center.y - maxLoc.y) < 20)
+				//&& (std::abs(max_cluster_center.x - maxLoc.x) > 50 || std::abs(max_cluster_center.y - maxLoc.y) > 50)
+				)
+			{
+
+				if (maxLoc.x <= 300)
+				{
+					if (points_right > wall_points + 20000)
+					{
+						double err1 = maxLoc.x - 600;
+						double p1 = err1 * 0.2;
+						integral1 = integral1 + err1 * 0.01;
+						double u1 = p1 + integral1;
+						actions = { 0, 0, u1, 1 };
+						std::cout << "Tic: " << gameState->tic << " : on my way woody left and wall right -> turn left" << std::endl;
+					}
+					else {
+						double err1 = maxLoc.x - 40;
+						double p1 = err1 * 0.2;
+						integral1 = integral1 + err1 * 0.01;
+						double u1 = p1 + integral1;
+						actions = { 0, 0, u1, 1 };
+						std::cout << "Tic: " << gameState->tic << " : on my way woody left -> turn right" << std::endl;
+					}
+				}
+				else
+				{
+					if (points_left > wall_points + 20000)
+					{
+						double err1 = maxLoc.x - 40;
+						double p1 = err1 * 0.2;
+						integral1 = integral1 + err1 * 0.01;
+						double u1 = p1 + integral1;
+						actions = { 0, 0, u1, 1 };
+						std::cout << "Tic: " << gameState->tic << " : on my way woody right and wall left -> turn right" << std::endl;
+					}
+					else {
+						double err1 = maxLoc.x - 600;
+						double p1 = err1 * 0.2;
+						integral1 = integral1 + err1 * 0.01;
+						double u1 = p1 + integral1;
+						actions = { 0, 0, u1, 1 };
+						std::cout << "Tic: " << gameState->tic << " : on my way woody right -> turn left" << std::endl;
+					}
+				}
+
+			}
+
+			game->makeAction(actions);
+
+			cv::imshow("Game", image);
+			cv::moveWindow("Game", 60, 20);
+			cv::imshow("Left", greyscale_left);
+			cv::moveWindow("Left", 710, 20);
+			cv::imshow("Right", greyscale_right);
+			cv::moveWindow("Right", 1030, 20);
 
 			cv::waitKey(1);
 		}
@@ -1024,6 +1264,7 @@ void runTask5V3(int episode)
 			cv::waitKey(sleepTime);
 		}
 		std::cout << game->getTotalReward() << std::endl;
+		total_reward += game->getTotalReward();
 
 		//std::cout << clusters.rows << " " << clusters.cols << std::endl;
 		//std::cout << centers << std::endl;
