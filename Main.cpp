@@ -1024,6 +1024,8 @@ void runTask7(int episode)
 		game->newEpisode();
 		std::cout << "Episode #" << i + 1 << std::endl;
 
+		double integral = 0;
+
 		while (!game->isEpisodeFinished())
 		{
 			int center = 0;
@@ -1174,7 +1176,7 @@ void runTask7(int episode)
 	}
 }
 
-void runTask7(int episode)
+void runTask7V2(int episode)
 {
 	try
 	{
@@ -1197,11 +1199,11 @@ void runTask7(int episode)
 
 	cv::Mat clusters;
 
-
 	for (auto i = 0; i < episode; i++)
 	{
 		game->newEpisode();
 		std::cout << "Episode #" << i + 1 << std::endl;
+		double integral = 0;
 
 		while (!game->isEpisodeFinished())
 		{
@@ -1368,7 +1370,7 @@ int main()
 	
 	auto episodes = 10;
 	//===============================
-	runTask4(episodes);
+	runTask7V2(episodes);
 	//===============================
 
 	std::cout << std::endl << "Rewards average: " << total_reward / episodes << std::endl;
