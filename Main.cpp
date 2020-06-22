@@ -357,7 +357,9 @@ void runTask3(int episodes) {
 }
 
 //returns count of points in cv::Mat that satisfy the requirements
-int thresholdImagePart(cv::Mat input, cv::Mat output, cv::Point start/*, cv::Point end*/) {
+int thresholdImagePart(cv::Mat input, /*cv::Mat output,*/ cv::Point start/*, cv::Point end*/) {
+
+	cv::Mat output = cv::Mat(130, 320, CV_8UC1);
 
 	//assert(start_x + output.cols <= input.cols);
 
@@ -371,12 +373,12 @@ int thresholdImagePart(cv::Mat input, cv::Mat output, cv::Point start/*, cv::Poi
 			&& std::abs(input.at<cv::Vec3b>(j + start.y, i + start.x)[1] - 50) < 10
 			&& std::abs(input.at<cv::Vec3b>(j + start.y, i + start.x)[2] - 50) < 10)
 			{
-				output.at<unsigned char>(j, i) = 255;
+				//output.at<unsigned char>(j, i) = 255;
 				points_count++;
 			}
 			else
 			{
-				output.at<unsigned char>(j, i) = 0;
+				//output.at<unsigned char>(j, i) = 0;
 			}
 		}
 	}
@@ -443,8 +445,8 @@ void runTask4(int episodes) {
 				}
 			}
 
-			int points_left = (points.size() < 1) ? thresholdImagePart(image, greyscale_left, cv::Point(0, 130)) : 0;
-			int points_right = (points.size() < 1) ? thresholdImagePart(image, greyscale_right, cv::Point(320, 130)) : 0;
+			int points_left = (points.size() < 1) ? thresholdImagePart(image, /*greyscale_left,*/ cv::Point(0, 130)) : 0;
+			int points_right = (points.size() < 1) ? thresholdImagePart(image, /*greyscale_right,*/ cv::Point(320, 130)) : 0;
 
 			//std::cout << "Right: " << points_right << std::endl;
 			//std::cout << "Left: " << points_left << std::endl;
@@ -479,7 +481,11 @@ void runTask4(int episodes) {
 			{
 				for (int i = 0; i < centers.size(); i++)
 				{
-					if (centers[i].y - max_cluster_center.y > 10) max_cluster_center = centers[i];
+					if (centers[i].y - max_cluster_center.y > 30 
+						|| (centers[i].y > max_cluster_center.y && std::abs(centers[i].x - max_cluster_center.x) < 30)) 
+					{
+						max_cluster_center = centers[i];
+					}
 				}
 			}
 			else
@@ -574,7 +580,7 @@ void runTask4(int episodes) {
 						integral1 = integral1 + err1 * 0.01;
 						double u1 = p1 + integral1;
 						actions = { 0, 0, u1, 1 };
-						std::cout << "Tic: " << gameState->tic << " : on my way woody left and wall right -> turn left" << std::endl;
+						//std::cout << "Tic: " << gameState->tic << " : on my way woody left and wall right -> turn left" << std::endl;
 					}
 					else {
 						double err1 = maxLoc.x - 40;
@@ -582,7 +588,7 @@ void runTask4(int episodes) {
 						integral1 = integral1 + err1 * 0.01;
 						double u1 = p1 + integral1;
 						actions = { 0, 0, u1, 1 };
-						std::cout << "Tic: " << gameState->tic << " : on my way woody left -> turn right" << std::endl;
+						//std::cout << "Tic: " << gameState->tic << " : on my way woody left -> turn right" << std::endl;
 					}
 				}
 				else
@@ -594,7 +600,7 @@ void runTask4(int episodes) {
 						integral1 = integral1 + err1 * 0.01;
 						double u1 = p1 + integral1;
 						actions = { 0, 0, u1, 1 };
-						std::cout << "Tic: " << gameState->tic << " : on my way woody right and wall left -> turn right" << std::endl;
+						//std::cout << "Tic: " << gameState->tic << " : on my way woody right and wall left -> turn right" << std::endl;
 					}
 					else {
 						double err1 = maxLoc.x - 600;
@@ -602,7 +608,7 @@ void runTask4(int episodes) {
 						integral1 = integral1 + err1 * 0.01;
 						double u1 = p1 + integral1;
 						actions = { 0, 0, u1, 1 };
-						std::cout << "Tic: " << gameState->tic << " : on my way woody right -> turn left" << std::endl;
+						//std::cout << "Tic: " << gameState->tic << " : on my way woody right -> turn left" << std::endl;
 					}
 				}
 
@@ -612,10 +618,10 @@ void runTask4(int episodes) {
 
 			cv::imshow("Game", image);
 			cv::moveWindow("Game", 60, 20);
-			cv::imshow("Left", greyscale_left);
-			cv::moveWindow("Left", 710, 20);
-			cv::imshow("Right", greyscale_right);
-			cv::moveWindow("Right", 1030, 20);
+			//cv::imshow("Left", greyscale_left);
+			//cv::moveWindow("Left", 710, 20);
+			//cv::imshow("Right", greyscale_right);
+			//cv::moveWindow("Right", 1030, 20);
 
 			cv::waitKey(1);
 		}
