@@ -1485,7 +1485,7 @@ void runTask9(int episodes) {
 	try
 	{
 		game->loadConfig(path + "\\scenarios\\task9.cfg");
-		game->setWindowVisible(true);
+		game->setWindowVisible(false);
 		game->init();
 	}
 	catch (std::exception& e)
@@ -1497,12 +1497,9 @@ void runTask9(int episodes) {
 
 	double integral = 0;
 	double integral1 = 0;
-	int wall_points = 13000;
+	int wall_points = 4000;
 
 	auto image = cv::Mat(480, 640, CV_8UC3);
-
-	cv::Mat grenade_templ = cv::imread("sprites\\Pickups\\bon1b0.png");
-
 	cv::Mat clusters;
 
 	for (auto a = 0; a < episodes; a++)
@@ -1555,28 +1552,22 @@ void runTask9(int episodes) {
 			}
 
 
-			/*int points_left = (points.size() < 1 && armor.y == -1) ? thresholdImagePart2(image, greyscale_left, cv::Point(0, 130)) : 0;
+			int points_left = (points.size() < 1 && armor.y == -1) ? thresholdImagePart2(image, greyscale_left, cv::Point(0, 130)) : 0;
 			int points_right = (points.size() < 1 && armor.y == -1) ? thresholdImagePart2(image, greyscale_right, cv::Point(320, 130)) : 0;
 
-			//std::cout << "Right: " << points_right << std::endl;
-			//std::cout << "Left: " << points_left << std::endl;
-
-			if (points_left > wall_points - 1000 && points_right > wall_points - 1000)
-			{
-				std::cout << "aaaa" << std::endl;
-				game->makeAction({ 0,0,0,0,0,0,-50,0 });
-			}
+			//if (points_right > 0) std::cout << "Right: " << points_right << std::endl;
+			//if (points_right > 0) std::cout << "Left: " << points_left << std::endl;
 
 			if (points_left > wall_points)
 			{
-				std::cout << "right" << std::endl;
+				//std::cout << "right" << std::endl;
 				game->makeAction({ 0,0,0,0,0,0,20,0 });
 			}
 			else if (points_right > wall_points)
 			{
-				std::cout << "left" << std::endl;
+				//std::cout << "left" << std::endl;
 				game->makeAction({ 0,0,0,0,0,0,-20,0 });
-			}*/
+			}
 
 			int K = 3;
 			if (points.size() > K)
@@ -1601,7 +1592,7 @@ void runTask9(int episodes) {
 				for (int i = 0; i < centers.size(); i++)
 				{
 					cv::Point c = centers[i];
-					if (c.y - max_cluster_center.y > 60 || std::abs(c.x - 320) - std::abs(max_cluster_center.x - 320) < -50) max_cluster_center = c;
+					if (c.y - max_cluster_center.y > 60 || std::abs(c.x - 320) - std::abs(max_cluster_center.x - 320) < -80) max_cluster_center = c;
 
 					cv::circle(image, c, 4, COLOR_RED, -1);
 					cv::putText(image, "enemy", cv::Point(c.x - 30, c.y - 30), 1, 1, COLOR_RED);
@@ -1624,6 +1615,10 @@ void runTask9(int episodes) {
 				double u = p + integral1;
 				actions = { 0, 0, 0, 0, 0, 0, u, 0 };
 			}
+			else
+			{
+				actions = { 0,0,1,0,0,0,0,0 };
+			}
 
 			cv::circle(image, armor, 4, COLOR_GREEN, -1);
 			cv::line(image, cv::Point(0, 220), cv::Point(640, 220), COLOR_YELLOW);
@@ -1638,9 +1633,9 @@ void runTask9(int episodes) {
 			cv::imshow("Game", image);
 			cv::moveWindow("Game", 60, 20);
 			cv::imshow("Left", greyscale_left);
-			cv::moveWindow("Left", 710, 20);
+			cv::moveWindow("Left", 710, 150);
 			cv::imshow("Right", greyscale_right);
-			cv::moveWindow("Right", 1030, 20);
+			cv::moveWindow("Right", 1030, 150);
 
 			//std::cout << armor;
 
