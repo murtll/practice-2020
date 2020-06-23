@@ -1624,7 +1624,7 @@ void runTask9(int episodes) {
 			cv::line(image, cv::Point(0, 220), cv::Point(640, 220), COLOR_YELLOW);
 			cv::line(image, cv::Point(0, 100), cv::Point(640, 100), COLOR_YELLOW);
 
-			if (abs(err) < 7 /*max_cluster_center.y - 180*/) actions = { 0,0,1,0,0,0,0,1 };
+			if (abs(err) < 7 /*max_cluster_center.y - 180*/) actions = { 0,0,0,0,0,0,0,1 };
 
 			if ((points.size() < 10 && abs(err2) < 40)) actions = { 0,0,1,0,0,0,0,0 };
 
