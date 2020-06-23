@@ -1114,6 +1114,343 @@ void runTask7V3(int episode)
 	}
 }
 
+void runTask6(int episode)
+{
+	try
+	{
+		game->loadConfig(path + "\\scenarios\\task6.cfg");
+		//game->setLabelsBufferEnabled(true);
+		game->setWindowVisible(true);
+		game->setRenderWeapon(true);
+		game->init();
+	}
+	catch (std::exception& e)
+	{
+		std::cout << e.what() << std::endl;
+	}
+
+	std::vector<double> actions[3];
+
+	auto image = cv::Mat(480, 640, CV_8UC3);
+	auto greyscale = cv::Mat(480, 640, CV_8UC1);
+
+	cv::Mat clusters;
+
+	actions[0] = { 1,0,0 };
+	actions[1] = { 0,1,0 };
+	actions[2] = { 0,0,0 };
+
+	for (auto i = 0; i < episode; i++)
+	{
+		game->newEpisode();
+		std::cout << "Episode #" << i + 1 << std::endl;
+
+		cv::Point last_cluster_center = cv::Point(0, 0);
+
+		while (!game->isEpisodeFinished())
+		{
+			const auto& gameState = game->getState();
+			std::memcpy(image.data, gameState->screenBuffer->data(), gameState->screenBuffer->size());
+
+			std::vector<cv::Point2f> centers;
+			std::vector<cv::Point2f> points(0);
+			for (int x = 0; x < 640; x++)
+			{
+				for (int y = 0; y < 400; y++)
+				{
+					if (int(image.at<cv::Vec3b>(y, x)[2]) > 200 && int(image.at<cv::Vec3b>(y, x)[0]) > 40 && int(image.at<cv::Vec3b>(y, x)[1]) > 250)
+					{
+						greyscale.at<unsigned char>(y, x) = 255;
+						points.push_back(cv::Point2f(x, y));
+					}
+					else
+					{
+						greyscale.at<unsigned char>(y, x) = 0;
+					}
+				}
+			}
+
+			greyscale.convertTo(greyscale, CV_32F);
+
+			cv::Mat samples = greyscale.reshape(1, greyscale.total());
+
+			int K = 3;
+			if (points.size() > K)
+			{
+				cv::kmeans(points, K, clusters, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 10, 1.0), 3, cv::KMEANS_RANDOM_CENTERS, centers);
+			}
+			else if (points.size() > 0)
+			{
+				K = 1;
+				cv::kmeans(points, K, clusters, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 10, 1.0), 3, cv::KMEANS_RANDOM_CENTERS, centers);
+			}
+
+			greyscale.convertTo(greyscale, CV_8UC3);
+
+
+			if (centers.size() > 0)
+			{
+				std::vector<int> cluster_counts(K, 0);
+
+				for (int y = 0; y < clusters.total(); y++)
+				{
+					int cluster_number = clusters.at<int>(y);
+					cluster_counts[cluster_number]++;
+				}
+
+				cv::Point max_cluster_center = cv::Point(0, 0);
+				int tmp = 0;
+
+				for (int i = 0; i < cluster_counts.size(); i++)
+				{
+					if (cluster_counts[i] > tmp) {
+						if (centers.size() > 0)
+						{
+							tmp = cluster_counts[i];
+							max_cluster_center = centers[i];
+						}
+					}
+				}
+
+				/*for (int i = 0; i < centers.size(); i++)
+				{
+					cv::Point c = centers[i];
+
+					cv::circle(image, c, 5, cv::Scalar(0, 0, 255), -1, 8);
+					cv::rectangle(image, cv::Rect(c.x - 25, c.y - 25, 50, 50), cv::Scalar(0, 0, 255));
+				}*/
+
+				for (int i = 0; i < points.size(); i++)
+				{
+					cv::circle(image, points[i], 1, cv::Scalar(0, 0, 255));
+				}
+
+
+				if (gameState->tic % 3 == 0) {
+					//std::cout << last_cluster_center - max_cluster_center;
+					last_cluster_center = max_cluster_center;
+					//cv::waitKey();
+				}
+
+				cv::circle(image, last_cluster_center, 5, COLOR_VIOLET, -1);
+				cv::circle(image, max_cluster_center, 6, COLOR_LIGHT_BLUE, -1);
+
+				if (last_cluster_center.x > max_cluster_center.x)
+				{
+					//std::cout << "Cluster moves left ";
+					if (max_cluster_center.x > 320)
+					{
+						//std::cout << "from right ";
+						if (max_cluster_center.y > 250)
+						{
+							//std::cout << "close to me." << std::endl;
+							game->makeAction(actions[0]);
+						}
+						else
+						{
+							//std::cout << "far from me." << std::endl;
+							game->makeAction(actions[1]);
+						}
+					}
+					else
+						game->makeAction(actions[0]);
+				}
+				else
+				{
+					//std::cout << "Cluster moves right ";
+					if (max_cluster_center.x < 320)
+					{
+						//std::cout << "from left ";
+						if (max_cluster_center.y > 250)
+						{
+							//	std::cout << "close to me." << std::endl;
+							game->makeAction(actions[1]);
+						}
+						else
+						{
+							//	std::cout << "far from me." << std::endl;
+							game->makeAction(actions[0]);
+						}
+					}
+					else
+						game->makeAction(actions[1]);
+				}
+			}
+			else
+			{
+				game->makeAction(actions[2]);
+			}
+
+
+			imshow("Game", image);
+			imshow("Greyscale", greyscale);
+			cv::moveWindow("Game", 60, 20);
+			cv::moveWindow("Greyscale", 710, 20);
+
+			char c = cv::waitKey(1);
+
+			//if 'ESC'
+			if (c == 27) break;
+		}
+		std::cout << game->getTotalReward() << std::endl;
+		total_reward += game->getTotalReward();
+	}
+}
+
+void runTask8(int episode)
+{
+	try
+	{
+		game->loadConfig(path + "\\scenarios\\task8.cfg");
+		game->setWindowVisible(true);
+		game->setRenderWeapon(true);
+		game->init();
+	}
+	catch (std::exception& e)
+	{
+		std::cout << e.what() << std::endl;
+	}
+
+	std::vector<double> actions = { 0,0,0,0 };
+
+	double integral = 0;
+
+	auto image = cv::Mat(480, 640, CV_8UC3);
+
+	cv::Mat clusters;
+
+	for (auto i = 0; i < episode; i++)
+	{
+		game->newEpisode();
+		std::cout << "Episode #" << i + 1 << std::endl;
+
+		int tmpX_end = 640, tmpX_start = 0;
+
+		while (!game->isEpisodeFinished())
+		{
+			auto greyscale = cv::Mat(270, 640, CV_8UC1);
+
+			const auto& gameState = game->getState();
+			std::memcpy(image.data, gameState->screenBuffer->data(), gameState->screenBuffer->size());
+
+			std::vector<cv::Point2f> centers;
+			std::vector<cv::Point2f> trueCenters;
+			std::vector<cv::Point2f> points(0);
+
+			int enemy_points = 0;
+
+			for (int x = tmpX_start; x < tmpX_end; x++)
+			{
+				for (int y = 0; y < 270; y++)
+				{
+					if (int(image.at<cv::Vec3b>(y, x)[2]) > 130 && int(image.at<cv::Vec3b>(y, x)[0]) < 40 && int(image.at<cv::Vec3b>(y, x)[1]) < 40)
+					{
+						if (x > 290 && x < 350)
+						{
+							enemy_points++;
+							if (enemy_points > 10)
+							{
+								tmpX_start = 290;
+								tmpX_end = 350;
+							}
+						}
+
+						cv::circle(image, cv::Point2f(x, y), 2, cv::Scalar(0, 255, 0));
+						greyscale.at<unsigned char>(y, x) = 255;
+						points.push_back(cv::Point2f(x, y));
+					}
+					else
+					{
+						greyscale.at<unsigned char>(y, x) = 0;
+					}
+				}
+			}
+
+			cv::rectangle(image, cv::Point(290, 0), cv::Point(350, 270), COLOR_YELLOW);
+
+			greyscale.convertTo(greyscale, CV_32F);
+
+			int K = 6;
+
+			if (points.size() > K)
+				cv::kmeans(points, K, clusters, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 1000, 1.0), 3, cv::KMEANS_RANDOM_CENTERS, centers);
+			else if (points.size() > 0)
+			{
+				K = 1;
+				cv::kmeans(points, K, clusters, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 1000, 1.0), 3, cv::KMEANS_RANDOM_CENTERS, centers);
+			}
+
+			greyscale.convertTo(greyscale, CV_8UC1);
+
+			cv::Point max_cluster_center = cv::Point(640, 0);
+
+			if (centers.size() > 1)
+			{
+				for (int i = 0; i < centers.size(); i++)
+				{
+					cv::Point c = centers[i];
+					if (c.x != 1000)
+						for (int j = i + 1; j < centers.size(); j++)
+						{
+							auto tmp = centers[j];
+							if (std::abs(c.x - tmp.x) > 30 || std::abs(c.x - tmp.x) > 40)
+							{
+								trueCenters.push_back(c);
+								tmp.x = 1000;
+							}
+						}
+				}
+
+				if (trueCenters.size() == 0) trueCenters.push_back(centers[0]);
+
+				for (int i = 0; i < trueCenters.size(); i++)
+				{
+					cv::Point c = trueCenters[i];
+					if (c.y - max_cluster_center.y > 80 || std::abs(c.x - 320) - std::abs(max_cluster_center.x - 320) < -50) max_cluster_center = c;
+					cv::circle(image, c, 5, cv::Scalar(0, 0, 255), -1, 8);
+					cv::rectangle(image, cv::Rect(c.x - 25, c.y - 25, 50, 50), cv::Scalar(0, 0, 255));
+				}
+			}
+			else if (centers.size() > 0)
+			{
+				cv::Point c = centers[0];
+				trueCenters.push_back(c);
+				max_cluster_center = c;
+				cv::circle(image, c, 5, cv::Scalar(0, 0, 255), -1, 8);
+				cv::rectangle(image, cv::Rect(c.x - 25, c.y - 25, 50, 50), cv::Scalar(0, 0, 255));
+			}
+
+			imshow("Game", image);
+			imshow("Greyscale", greyscale);
+			cv::moveWindow("Game", 60, 20);
+			cv::moveWindow("Greyscale", 710, 20);
+
+			double err = max_cluster_center.x - 320;
+			if (abs(err) < ((max_cluster_center.y) - 185))
+			{
+				actions = { 0,0,1 };
+				tmpX_end = 640;
+				tmpX_start = 0;
+			}
+			else if (err < 0)
+			{
+				actions = { 2,0,0 };
+			}
+			else
+			{
+				actions = { 0,2,0 };
+			}
+
+			int reward = game->makeAction(actions);
+
+			char c = cv::waitKey(1);
+
+			if (c == 27) break;
+		}
+		std::cout << game->getTotalReward() << std::endl;
+		total_reward += game->getTotalReward();
+	}
+}
 
 int main()
 {
@@ -1129,7 +1466,7 @@ int main()
 	
 	auto episodes = 10;
 	//===============================
-	runTask7V3(episodes);
+	runTask8(episodes);
 	//===============================
 
 	std::cout << std::endl << "Rewards average: " << total_reward / episodes << std::endl;
