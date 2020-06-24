@@ -1585,21 +1585,29 @@ void runTask9(int episodes) {
 			greyscale_left.convertTo(greyscale_left, CV_8UC1);
 			greyscale_right.convertTo(greyscale_right, CV_8UC1);
 
-			cv::Point max_cluster_center = cv::Point(640, 0);
+			cv::Point max_cluster_center = cv::Point(700, 0);
 
 			if (centers.size() > 0)
 			{
 				for (int i = 0; i < centers.size(); i++)
 				{
 					cv::Point c = centers[i];
-					if (c.y - max_cluster_center.y > 60 || std::abs(c.x - 320) - std::abs(max_cluster_center.x - 320) < -80) max_cluster_center = c;
+					if (std::abs(c.x - 320) - std::abs(max_cluster_center.x - 320) < -80) max_cluster_center = c;
 
 					cv::circle(image, c, 4, COLOR_RED, -1);
 					cv::putText(image, "enemy", cv::Point(c.x - 30, c.y - 30), 1, 1, COLOR_RED);
 					cv::rectangle(image, cv::Point(c.x - 30, c.y - 30), cv::Point(c.x + 30, c.y + 60), COLOR_RED, 1);
 				}
-			}
 
+				for (int i = 0; i < centers.size(); i++)
+				{
+					if (centers[i].y - max_cluster_center.y > 20) max_cluster_center = centers[i];
+				}
+			}
+			///////////////////////////////////////////////////////////////////////////
+			if (max_cluster_center.x < 650 && max_cluster_center.x > 320 && max_cluster_center.y < 210) game->makeAction({ 1,0,0,0,0,0,0,0 });
+			else if (max_cluster_center.x <= 320 && max_cluster_center.y < 210) game->makeAction({ 0,1,0,0,0,0,0,0 });
+			////////////////////////////////////////////////////////////////////////
 			double err = max_cluster_center.x - 320;
 			double err2 = armor.x - 320;
 			if (points.size() > 0)
@@ -1623,6 +1631,7 @@ void runTask9(int episodes) {
 			cv::circle(image, armor, 4, COLOR_GREEN, -1);
 			cv::line(image, cv::Point(0, 220), cv::Point(640, 220), COLOR_YELLOW);
 			cv::line(image, cv::Point(0, 100), cv::Point(640, 100), COLOR_YELLOW);
+			cv::line(image, cv::Point(0, 210), cv::Point(640, 210), COLOR_YELLOW);
 
 			if (abs(err) < 7 /*max_cluster_center.y - 180*/) actions = { 0,0,0,0,0,0,0,1 };
 
