@@ -1393,7 +1393,8 @@ void runTask8(int episode)
 
 			std::vector<cv::Point2f> centers;
 			std::vector<cv::Point2f> trueCenters;
-			std::vector<cv::Point2f> points(0);
+			std::vector<cv::Point2f> trooPoints;
+			std::vector<cv::Point2f> sagrhPoints;
 
 			int enemy_points = 0;
 
@@ -1401,7 +1402,8 @@ void runTask8(int episode)
 			{
 				for (int y = 0; y < 220; y++)
 				{
-					if (int(image.at<cv::Vec3b>(y, x)[2]) > 130 && int(image.at<cv::Vec3b>(y, x)[0]) < 40 && int(image.at<cv::Vec3b>(y, x)[1]) < 40)
+					/*if (int(image.at<cv::Vec3b>(y, x)[2]) > 190 && int(image.at<cv::Vec3b>(y, x)[0]) > 100 && int(image.at<cv::Vec3b>(y, x)[1]) > 100
+						&& image.at<cv::Vec3b>(y, x)[0] < 150 && image.at<cv::Vec3b>(y, x)[1] < 150)
 					{
 						if (x > 290 && x < 350)
 						{
@@ -1413,14 +1415,36 @@ void runTask8(int episode)
 							}
 						}
 
-						cv::circle(image, cv::Point2f(x, y), 2, cv::Scalar(0, 255, 0));
-						greyscale.at<unsigned char>(y, x) = 255;
-						points.push_back(cv::Point2f(x, y));
-					}
-					else
+						cv::circle(image, cv::Point2f(x, y), 2, COLOR_GREEN);
+						//greyscale.at<unsigned char>(y, x) = 150;
+						sagrhPoints.push_back(cv::Point2f(x, y));
+					}*/
+					//else
+					//{
+						//greyscale.at<unsigned char>(y, x) = 0;
+					//}
+
+					if (int(image.at<cv::Vec3b>(y, x)[2]) < 40
+						&& image.at<cv::Vec3b>(y, x)[0] < 20 && image.at<cv::Vec3b>(y, x)[1] > 20 && image.at<cv::Vec3b>(y, x)[1] < 30)
 					{
-						greyscale.at<unsigned char>(y, x) = 0;
+						if (x > 290 && x < 350)
+						{
+							enemy_points++;
+							if (enemy_points > 10)
+							{
+								tmpX_start = 290;
+								tmpX_end = 350;
+							}
+						}
+
+						cv::circle(image, cv::Point2f(x, y), 2, COLOR_LIGHT_BLUE);
+						//greyscale.at<unsigned char>(y, x) = 255;
+						trooPoints.push_back(cv::Point2f(x, y));
 					}
+					//else
+					//{
+						//greyscale.at<unsigned char>(y, x) = 0;
+					//}
 				}
 			}
 
@@ -1428,15 +1452,22 @@ void runTask8(int episode)
 
 			greyscale.convertTo(greyscale, CV_32F);
 
-			int K = 6;
+			int K = 3;
 
-			if (points.size() > K)
-				cv::kmeans(points, K, clusters, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 1000, 1.0), 3, cv::KMEANS_RANDOM_CENTERS, centers);
-			else if (points.size() > 0)
+			if (trooPoints.size() > K)
+				cv::kmeans(trooPoints, K, clusters, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 1000, 1.0), 3, cv::KMEANS_RANDOM_CENTERS, centers);
+			else if (trooPoints.size() > 0)
 			{
 				K = 1;
-				cv::kmeans(points, K, clusters, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 1000, 1.0), 3, cv::KMEANS_RANDOM_CENTERS, centers);
+				cv::kmeans(trooPoints, K, clusters, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 1000, 1.0), 3, cv::KMEANS_RANDOM_CENTERS, centers);
 			}
+			/*else if (sagrhPoints.size() > K)
+				cv::kmeans(sagrhPoints, K, clusters, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 1000, 1.0), 3, cv::KMEANS_RANDOM_CENTERS, centers);
+			else if (sagrhPoints.size() > 0)
+			{
+				K = 1;
+				cv::kmeans(sagrhPoints, K, clusters, cv::TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::COUNT, 1000, 1.0), 3, cv::KMEANS_RANDOM_CENTERS, centers);
+			}*/
 
 			greyscale.convertTo(greyscale, CV_8UC1);
 
@@ -1444,19 +1475,30 @@ void runTask8(int episode)
 
 			if (centers.size() > 1)
 			{
-				for (int i = 0; i < centers.size(); i++)
+				for (int clust1 = 0; clust1 < centers.size(); clust1++)
 				{
-					cv::Point c = centers[i];
-					if (c.x != 1000)
-						for (int j = i + 1; j < centers.size(); j++)
+					if (centers[clust1].x != 1337)
+					{
+						cv::Point baseCenter;
+						baseCenter.x = centers[clust1].x;
+						baseCenter.y = centers[clust1].y;
+						int mergedCenters = 1;
+						for (int clust2 = clust1; clust2 < centers.size(); clust2++)
 						{
-							auto tmp = centers[j];
-							if (std::abs(c.x - tmp.x) > 30 || std::abs(c.x - tmp.x) > 40)
+							if (abs(centers[clust1].x - centers[clust2].x) < 40 && abs(centers[clust1].y - centers[clust2].y) < 40 && clust1 != clust2)
 							{
-								trueCenters.push_back(c);
-								tmp.x = 1000;
+
+								baseCenter.x += centers[clust2].x;
+								baseCenter.y += centers[clust2].y;
+								centers[clust2].x = 1337;
+								mergedCenters++;
+
 							}
 						}
+						baseCenter.x /= mergedCenters;
+						baseCenter.y /= mergedCenters;
+						trueCenters.push_back(baseCenter);
+					}
 				}
 
 				if (trueCenters.size() == 0) trueCenters.push_back(centers[0]);
@@ -1478,13 +1520,10 @@ void runTask8(int episode)
 				cv::rectangle(image, cv::Rect(c.x - 25, c.y - 25, 50, 50), cv::Scalar(0, 0, 255));
 			}
 
-			imshow("Game", image);
-			imshow("Greyscale", greyscale);
-			cv::moveWindow("Game", 60, 20);
-			cv::moveWindow("Greyscale", 710, 20);
+			cv::line(image, cv::Point(0, 195), cv::Point(640, 195), COLOR_YELLOW);
 
 			double err = max_cluster_center.x - 320;
-			if (abs(err) < ((max_cluster_center.y) - 185))
+			if (abs(err) < ((max_cluster_center.y) - 195))
 			{
 				actions = { 0,0,1 };
 				tmpX_end = 640;
@@ -1499,7 +1538,14 @@ void runTask8(int episode)
 				actions = { 0,2,0 };
 			}
 
+			if (max_cluster_center.y == 0) actions = { 0,0,0,0 };
+
 			int reward = game->makeAction(actions);
+
+			imshow("Game", image);
+			//imshow("Greyscale", greyscale);
+			cv::moveWindow("Game", 60, 20);
+			//cv::moveWindow("Greyscale", 710, 20);
 
 			char c = cv::waitKey(1);
 
@@ -1775,7 +1821,7 @@ int main()
 	
 	auto episodes = 10;
 	//===============================
-	runTask10(episodes);
+	runTask8(episodes);
 	//===============================
 
 	std::cout << std::endl << "Rewards average: " << total_reward / episodes << std::endl;
