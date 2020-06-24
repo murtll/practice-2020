@@ -415,6 +415,35 @@ int thresholdImagePart2(cv::Mat input, cv::Mat output, cv::Point start/*, cv::Po
 	return points_count;
 }
 
+int thresholdImagePart3(cv::Mat input, cv::Mat output, cv::Point start/*, cv::Point end*/) {
+
+	//cv::Mat output = cv::Mat(130, 320, CV_8UC1);
+
+	//assert(start_x + output.cols <= input.cols);
+
+	int points_count = 0;
+
+	for (int i = 0; i < output.cols; i++)
+	{
+		for (int j = 0; j < output.rows; j++)
+		{
+			if (std::abs(input.at<cv::Vec3b>(j + start.y, i + start.x)[0] - 130) < 10
+				&& std::abs(input.at<cv::Vec3b>(j + start.y, i + start.x)[1] - 130) < 10
+				&& std::abs(input.at<cv::Vec3b>(j + start.y, i + start.x)[2] - 130) < 10)
+			{
+				output.at<unsigned char>(j, i) = 255;
+				points_count++;
+			}
+			else
+			{
+				output.at<unsigned char>(j, i) = 0;
+			}
+		}
+	}
+
+	return points_count;
+}
+
 void runTask4(int episodes) {
 	try
 	{
@@ -1370,7 +1399,7 @@ void runTask8(int episode)
 
 			for (int x = tmpX_start; x < tmpX_end; x++)
 			{
-				for (int y = 0; y < 270; y++)
+				for (int y = 0; y < 220; y++)
 				{
 					if (int(image.at<cv::Vec3b>(y, x)[2]) > 130 && int(image.at<cv::Vec3b>(y, x)[0]) < 40 && int(image.at<cv::Vec3b>(y, x)[1]) < 40)
 					{
@@ -1629,9 +1658,9 @@ void runTask9(int episodes) {
 			}
 
 			cv::circle(image, armor, 4, COLOR_GREEN, -1);
-			cv::line(image, cv::Point(0, 220), cv::Point(640, 220), COLOR_YELLOW);
-			cv::line(image, cv::Point(0, 100), cv::Point(640, 100), COLOR_YELLOW);
-			cv::line(image, cv::Point(0, 210), cv::Point(640, 210), COLOR_YELLOW);
+			//cv::line(image, cv::Point(0, 220), cv::Point(640, 220), COLOR_YELLOW);
+			//cv::line(image, cv::Point(0, 100), cv::Point(640, 100), COLOR_YELLOW);
+			//cv::line(image, cv::Point(0, 210), cv::Point(640, 210), COLOR_YELLOW);
 
 			if (abs(err) < 7 /*max_cluster_center.y - 180*/) actions = { 0,0,0,0,0,0,0,1 };
 
@@ -1656,6 +1685,82 @@ void runTask9(int episodes) {
 
 }
 
+void runTask10(int episodes) {
+	try
+	{
+		game->loadConfig(path + "\\scenarios\\task10.cfg");
+		game->setWindowVisible(false);
+		//game->setLabelsBufferEnabled(true);
+		//game->setRenderWeapon(true);
+		game->init();
+	}
+	catch (std::exception& e)
+	{
+		std::cout << e.what() << std::endl;
+	}
+
+	std::vector<double> actions = { 0,0,0,0,0,0 };
+
+	double integral = 0;
+	cv::Point max_cluster_center = cv::Point(320, 0);
+
+	auto image = cv::Mat(480, 640, CV_8UC3);
+
+
+	for (auto a = 0; a < episodes; a++)
+	{
+		game->newEpisode();
+		std::cout << "Episode #" << a + 1 << std::endl;
+
+		while (!game->isEpisodeFinished())
+		{
+
+			//auto greyscale_right = cv::Mat(130, 320, CV_8UC1);
+			//auto greyscale_left = cv::Mat(130, 320, CV_8UC1);
+
+			auto greyscale = cv::Mat(480, 640, CV_8UC3);
+			cv::Mat edges;
+
+			const auto& gameState = game->getState();
+			std::memcpy(image.data, gameState->screenBuffer->data(), gameState->screenBuffer->size());
+
+			cvtColor(image, greyscale, cv::COLOR_BGR2GRAY);
+			cv::blur(greyscale, edges, cv::Size(3, 3));
+
+			cv::Canny(edges, edges, 50, 150, 3);
+			//cv::Canny(greyscale, greyscale, edges, );
+			
+
+			/*double err = max_cluster_center.x - 320;
+			if (points.size() > 0)
+			{
+				double p = err * 0.2;
+				integral = integral + err * 0.01;
+				double u = p + integral;
+				actions = { 0,0,1,0,0,u };
+			}
+			//else actions = { 0,0,1,0,0,0 };
+			if (abs(err) < 20) actions = { 0,0,0,1 };*/
+
+			game->makeAction(actions);
+
+			cv::imshow("Game", image);
+			cv::moveWindow("Game", 60, 20);
+			cv::imshow("Edges", edges);
+			cv::moveWindow("Edges", 710, 20);
+			//cv::imshow("Left", greyscale_left);
+			//cv::moveWindow("Left", 710, 20);
+			//cv::imshow("Right", greyscale_right);
+			//cv::moveWindow("Right", 1030, 20);
+
+			cv::waitKey(1);
+		}
+		std::cout << game->getTotalReward() << std::endl;
+		total_reward += game->getTotalReward();
+	}
+
+}
+
 int main()
 {
 	try
@@ -1670,7 +1775,7 @@ int main()
 	
 	auto episodes = 10;
 	//===============================
-	runTask9(episodes);
+	runTask10(episodes);
 	//===============================
 
 	std::cout << std::endl << "Rewards average: " << total_reward / episodes << std::endl;
