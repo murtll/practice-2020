@@ -1379,6 +1379,8 @@ void runTask8(int episode)
 
 	for (auto i = 0; i < episode; i++)
 	{
+		//int minY = 480;
+
 		game->newEpisode();
 		std::cout << "Episode #" << i + 1 << std::endl;
 
@@ -1424,7 +1426,7 @@ void runTask8(int episode)
 						//greyscale.at<unsigned char>(y, x) = 0;
 					//}
 
-					if (int(image.at<cv::Vec3b>(y, x)[2]) < 40
+					if (int(image.at<cv::Vec3b>(y, x)[2]) < 60
 						&& image.at<cv::Vec3b>(y, x)[0] < 20 && image.at<cv::Vec3b>(y, x)[1] > 20 && image.at<cv::Vec3b>(y, x)[1] < 30)
 					{
 						if (x > 290 && x < 350)
@@ -1523,7 +1525,7 @@ void runTask8(int episode)
 			cv::line(image, cv::Point(0, 195), cv::Point(640, 195), COLOR_YELLOW);
 
 			double err = max_cluster_center.x - 320;
-			if (abs(err) < ((max_cluster_center.y) - 195))
+			if (abs(err) < 7 /*((max_cluster_center.y) - 195)*/)
 			{
 				actions = { 0,0,1 };
 				tmpX_end = 640;
@@ -1541,6 +1543,8 @@ void runTask8(int episode)
 			if (max_cluster_center.y == 0) actions = { 0,0,0,0 };
 
 			int reward = game->makeAction(actions);
+
+			//if (max_cluster_center.y > 0 && max_cluster_center.y < minY) minY = max_cluster_center.y;
 
 			imshow("Game", image);
 			//imshow("Greyscale", greyscale);
