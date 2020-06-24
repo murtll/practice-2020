@@ -1508,7 +1508,7 @@ void runTask8(int episode)
 				for (int i = 0; i < trueCenters.size(); i++)
 				{
 					cv::Point c = trueCenters[i];
-					if (c.y - max_cluster_center.y > 80 || std::abs(c.x - 320) - std::abs(max_cluster_center.x - 320) < -50) max_cluster_center = c;
+					if (c.y - max_cluster_center.y > 60 || std::abs(c.x - 320) - std::abs(max_cluster_center.x - 320) < -50) max_cluster_center = c;
 					cv::circle(image, c, 5, cv::Scalar(0, 0, 255), -1, 8);
 					cv::rectangle(image, cv::Rect(c.x - 25, c.y - 25, 50, 50), cv::Scalar(0, 0, 255));
 				}
